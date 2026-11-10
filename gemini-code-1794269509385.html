@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LOS PAPUS: En Busca de la Princesa Guada</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        body {
+            font-family: 'Press Start 2P', monospace;
+            background-color: #080511;
+            color: #fff;
+            overflow: hidden;
+        }
+
+        .font-pixel { font-family: 'Press Start 2P', monospace; }
+        .font-vt { font-family: 'VT323', monospace; }
+
+        canvas {
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        .crt::after {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            z-index: 50;
+            background-size: 100% 3px, 6px 100%;
+            pointer-events: none;
+        }
+
+        .btn-papu {
+            background: linear-gradient(180deg, #ff007f 0%, #b30059 100%);
+            border: 3px solid #ffe600;
+            box-shadow: 0 4px 0 #800040, 0 0 10px rgba(255, 0, 127, 0.8);
+            text-shadow: 2px 2px 0 #000;
+        }
+        .btn-papu:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #800040;
+        }
+
+        .btn-cyan {
+            background: linear-gradient(180deg, #00f3ff 0%, #0088cc 100%);
+            border: 3px solid #ffffff;
+            box-shadow: 0 4px 0 #005580, 0 0 10px rgba(0, 243, 255, 0.8);
+            text-shadow: 2px 2px 0 #000;
+        }
+        .btn-cyan:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #005580;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+
+    <div id="game-wrapper" class="relative w-full max-w-[800px] h-[100vh] max-h-[600px] bg-black crt overflow-hidden flex flex-col justify-between border-4 border-yellow-400 rounded-lg shadow-[0_0_30px_rgba(255,215,0,0.3)]">
+        
+        <!-- HEADER HUD -->
+        <div id="hud" class="hidden relative z-40 flex justify-between items-center p-3 bg-slate-900/90 border-b-4 border-yellow-400 text-[10px] sm:text-xs">
+            <div class="flex items-center gap-2">
+                <span class="text-yellow-400">PAPU:</span>
+                <span id="hud-name" class="text-cyan-400">---</span>
+            </div>
+            <div class="flex items-center gap-1">
+                <span class="text-pink-500 mr-1">VIDAS:</span>
+                <span id="hud-lives" class="text-red-500 text-sm tracking-widest">❤❤❤❤❤</span>
+            </div>
+            <div>
+                <span class="text-yellow-400">FASE:</span>
+                <span id="hud-stage" class="text-green-400">1/8</span>
+            </div>
+        </div>
+
+        <!-- CANVAS PRINCIPAL DEL JUEGO -->
+        <canvas id="gameCanvas" width="800" height="520" class="w-full h-full block bg-gray-950"></canvas>
+
+        <!-- TOUCH CONTROLS OVERLAY (Móvil) -->
+        <div id="mobile-controls" class="hidden absolute bottom-2 left-0 right-0 z-40 flex justify-between px-4 pointer-events-none">
+            <div class="flex gap-2 pointer-events-auto">
+                <button id="btn-left" class="w-14 h-14 bg-yellow-500/80 active:bg-yellow-400 text-black font-bold text-2xl border-2 border-white rounded">◄</button>
+                <button id="btn-right" class="w-14 h-14 bg-yellow-500/80 active:bg-yellow-400 text-black font-bold text-2xl border-2 border-white rounded">►</button>
+            </div>
+            <div class="flex gap-2 pointer-events-auto">
+                <button id="btn-action" class="w-16 h-14 bg-pink-600/90 active:bg-pink-500 text-white font-bold text-xs border-2 border-yellow-300 rounded leading-tight">ACCION / ATAQUE</button>
+            </div>
+        </div>
+
+        <!-- CAPAS DE INTERFAZ Y MENÚS -->
+        <div id="ui-layer" class="absolute inset-0 z-30 flex flex-col justify-center items-center p-4 bg-black/85 text-center overflow-y-auto">
+            
+            <!-- MENÚ PRINCIPAL -->
+            <div id="screen-title" class="space-y-4 max-w-lg">
+                <h1 class="text-3xl sm:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-500 to-cyan-400 animate-pulse tracking-wider leading-snug">
+                    LOS PAPUS
+                </h1>
+                <p class="text-pink-400 text-xs sm:text-sm font-vt tracking-widest uppercase">¡EL RESCATE DE LA PRINCESA GUADA!</p>
+                <div class="p-3 bg-purple-950/80 border-2 border-pink-500 rounded text-[10px] text-gray-200 leading-relaxed">
+                    El malvado <span class="text-yellow-400 font-bold">TOMI</span> ha secuestrado a la bella <span class="text-pink-300 font-bold">PRINCESA GUADA</span>. ¡Demuestra tu habilidad completando minijuegos imposibles!
+                </div>
+                <button id="btn-goto-custom" class="btn-papu px-6 py-4 rounded text-xs tracking-wider cursor-pointer transform transition hover:scale-105">
+                    ¡CREAR MI PAPU!
+                </button>
+            </div>
+
+            <!-- PERSONALIZACIÓN DE PERSONAJE -->
+            <div id="screen-custom" class="hidden w-full max-w-md space-y-3">
+                <h2 class="text-lg text-yellow-400">CREA TU PAPU</h2>
+                
+                <div class="flex justify-center items-center gap-4 bg-gray-900/90 p-3 rounded border-2 border-pink-500">
+                    <canvas id="custom-preview" width="80" height="96" class="bg-slate-950 border border-gray-700 rounded"></canvas>
+                    <div class="text-left text-[10px] space-y-1">
+                        <p class="text-gray-400">NOMBRE SELECCIONADO:</p>
+                        <p id="lbl-selected-name" class="text-cyan-300 text-xs font-bold">Agustín</p>
+                        <p class="text-pink-400">RESISTENCIA: 5 VIDAS</p>
+                    </div>
+                </div>
+
+                <div class="text-left text-[10px]">
+                    <label class="text-yellow-300 block mb-1">1. SELECCIONA TU NOMBRE (15 NOMBRES PAPU):</label>
+                    <select id="select-name" class="w-full bg-slate-800 text-cyan-300 border border-yellow-400 p-2 rounded font-pixel text-[10px] focus:outline-none">
+                    </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-[9px] text-left">
+                    <div>
+                        <label class="text-gray-300">PIEL:</label>
+                        <div class="flex gap-1 mt-1" id="opts-skin"></div>
+                    </div>
+                    <div>
+                        <label class="text-gray-300">PELO:</label>
+                        <div class="flex gap-1 mt-1" id="opts-hair"></div>
+                    </div>
+                    <div>
+                        <label class="text-gray-300">REMERITA:</label>
+                        <div class="flex gap-1 mt-1" id="opts-shirt"></div>
+                    </div>
+                    <div>
+                        <label class="text-gray-300">ACCESORIO:</label>
+                        <button id="btn-toggle-acc" class="w-full mt-1 bg-slate-800 text-yellow-300 border border-gray-600 py-1 rounded text-[9px]">NINGUNO</button>
+                    </div>
+                </div>
+
+                <button id="btn-start-game" class="btn-cyan w-full py-3 rounded text-xs tracking-wider mt-2 cursor-pointer">
+                    ¡EMPEZAR LA AVENTURA!
+                </button>
+            </div>
+
+            <!-- ANUNCIO DE MINIJUEGO / DIÁLOGO -->
+            <div id="screen-dialog" class="hidden w-full max-w-lg bg-slate-900 border-4 border-yellow-400 p-4 rounded text-left space-y-3">
+                <div class="flex items-center gap-3 border-b-2 border-gray-700 pb-2">
+                    <canvas id="dialog-portrait" width="60" height="60" class="bg-black border border-gray-500 rounded"></canvas>
+                    <div>
+                        <h3 id="dialog-speaker" class="text-yellow-400 text-xs">TOMI EL VILLANO</h3>
+                        <p id="dialog-minigame-title" class="text-pink-400 text-[10px]">MINIJUEGO 1: ???</p>
+                    </div>
+                </div>
+                <p id="dialog-text" class="text-[10px] text-gray-200 leading-relaxed font-vt text-sm sm:text-base">
+                    "¡Jajaja Papu! Nunca podrás salvar a Guada..."
+                </p>
+                <div class="p-2 bg-black border border-cyan-500 text-[9px] text-cyan-300 leading-normal" id="dialog-instruction">
+                    INSTRUCCIÓN: Prepara tus reflejos.
+                </div>
+                <button id="btn-start-minigame" class="btn-papu w-full py-3 rounded text-xs tracking-wider cursor-pointer">
+                    ¡ACEPTAR DESAFÍO!
+                </button>
+            </div>
+
+            <!-- GAME OVER -->
+            <div id="screen-gameover" class="hidden space-y-4 max-w-md">
+                <h2 class="text-3xl text-red-500 animate-bounce">¡PERDISTE PAPU!</h2>
+                <p class="text-gray-300 text-xs font-vt text-lg">Tomi se burla de ti y la Princesa Guada sigue atrapada...</p>
+                <div class="p-3 bg-red-950/80 border border-red-500 text-[10px] text-red-200">
+                    TE QUEDASTE SIN VIDAS EN LA FASE <span id="go-stage" class="text-yellow-300">1</span>
+                </div>
+                <button id="btn-retry" class="btn-papu px-6 py-3 rounded text-xs tracking-wider cursor-pointer">
+                    REINTENTAR DESDE EL PRINCIPIO
+                </button>
+            </div>
+
+            <!-- VICTORIA FINAL -->
+            <div id="screen-victory" class="hidden space-y-3 max-w-lg">
+                <h2 class="text-2xl sm:text-3xl text-yellow-300">¡VICTORIA PAPU LEGENDARIA!</h2>
+                <canvas id="victory-canvas" width="320" height="140" class="mx-auto border-2 border-yellow-400 bg-slate-950 rounded"></canvas>
+                <p class="text-pink-300 text-xs font-vt text-lg">
+                    ¡Has derrotado al malvado TOMI y rescatado a la PRINCESA GUADA!
+                </p>
+                <p id="vic-hero-name" class="text-cyan-400 text-xs">¡ERES EL PAPU DEFINITIVO!</p>
+                <button id="btn-restart" class="btn-cyan px-6 py-3 rounded text-xs tracking-wider cursor-pointer">
+                    VOLVER AL MENÚ
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        class RetroAudio {
+            constructor() { this.ctx = null; }
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioCtx();
+                }
+            }
+            playTone(freq, type = 'square', duration = 0.1, vol = 0.1) {
+                if (!this.ctx) return;
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + duration);
+                } catch(e){}
+            }
+            playJump() {
+                this.playTone(300, 'square', 0.08, 0.1);
+                setTimeout(() => this.playTone(600, 'square', 0.12, 0.1), 40);
+            }
+            playSuccess() {
+                const notes = [400, 520, 660, 880];
+                notes.forEach((n, i) => setTimeout(() => this.playTone(n, 'triangle', 0.1, 0.15), i * 70));
+            }
+            playHurt() {
+                this.playTone(180, 'sawtooth', 0.2, 0.2);
+                setTimeout(() => this.playTone(110, 'sawtooth', 0.2, 0.2), 80);
+            }
+            playClick() { this.playTone(800, 'sine', 0.03, 0.05); }
+        }
+        const audio = new RetroAudio();
+
+        const PAPU_NAMES = [
+            "Agustín", "Amadeo", "Bautista", "Franco", "Gaspar", 
+            "Juan", "Lucas", "Monchi", "Nahuel", "Radamel", 
+            "Ramiro", "Santiago", "Santino", "Tiago", "Tobias"
+        ];
+
+        const COLOR_PALETTES = {
+            skin: ['#ffdbac', '#f1c27d', '#e0ac69', '#8d5524'],
+            hair: ['#090809', '#4a3728', '#b89700', '#a52a2a', '#ff4500'],
+            shirt: ['#ff0055', '#00f3ff', '#00ff66', '#ffcc00', '#9900ff']
+        };
+
+        const playerCustom = { name: "Agustín", skinIdx: 0, hairIdx: 0, shirtIdx: 0, accIdx: 0 };
+
+        function drawPixelSprite(ctx, type, x, y, scale = 2, customOpts = null) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            if (type === 'HERO') {
+                const skin = COLOR_PALETTES.skin[customOpts ? customOpts.skinIdx : playerCustom.skinIdx];
+                const hair = COLOR_PALETTES.hair[customOpts ? customOpts.hairIdx : playerCustom.hairIdx];
+                const shirt = COLOR_PALETTES.shirt[customOpts ? customOpts.shirtIdx : playerCustom.shirtIdx];
+                const acc = customOpts ? customOpts.accIdx : playerCustom.accIdx;
+
+                ctx.fillStyle = shirt;
+                ctx.fillRect(4 * scale, 14 * scale, 8 * scale, 10 * scale);
+                ctx.fillStyle = '#1a1a2e';
+                ctx.fillRect(4 * scale, 24 * scale, 8 * scale, 6 * scale);
+                ctx.fillStyle = skin;
+                ctx.fillRect(2 * scale, 14 * scale, 2 * scale, 8 * scale);
+                ctx.fillRect(12 * scale, 14 * scale, 2 * scale, 8 * scale);
+                ctx.fillRect(3 * scale, 4 * scale, 10 * scale, 10 * scale);
+                ctx.fillStyle = '#000';
+                ctx.fillRect(5 * scale, 7 * scale, 2 * scale, 2 * scale);
+                ctx.fillRect(9 * scale, 7 * scale, 2 * scale, 2 * scale);
+                ctx.fillStyle = hair;
+                ctx.fillRect(3 * scale, 2 * scale, 10 * scale, 3 * scale);
+                ctx.fillRect(2 * scale, 4 * scale, 2 * scale, 4 * scale);
+
+                if (acc === 1) {
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(4 * scale, 6 * scale, 8 * scale, 3 * scale);
+                    ctx.fillStyle = '#00f3ff';
+                    ctx.fillRect(5 * scale, 7 * scale, 2 * scale, 1 * scale);
+                    ctx.fillRect(9 * scale, 7 * scale, 2 * scale, 1 * scale);
+                } else if (acc === 2) {
+                    ctx.fillStyle = '#ff0055';
+                    ctx.fillRect(2 * scale, 1 * scale, 12 * scale, 3 * scale);
+                    ctx.fillRect(12 * scale, 3 * scale, 4 * scale, 1 * scale);
+                }
+            } else if (type === 'TOMI') {
+                ctx.fillStyle = '#6d4c41';
+                ctx.fillRect(3 * scale, 4 * scale, 10 * scale, 10 * scale);
+                ctx.fillStyle = '#111';
+                ctx.fillRect(2 * scale, 1 * scale, 12 * scale, 5 * scale);
+                ctx.fillRect(1 * scale, 2 * scale, 14 * scale, 3 * scale);
+                ctx.fillRect(3 * scale, 0 * scale, 10 * scale, 2 * scale);
+                ctx.fillStyle = '#ff0000';
+                ctx.fillRect(5 * scale, 7 * scale, 2 * scale, 2 * scale);
+                ctx.fillRect(9 * scale, 7 * scale, 2 * scale, 2 * scale);
+                ctx.fillStyle = '#212121';
+                ctx.fillRect(4 * scale, 14 * scale, 8 * scale, 10 * scale);
+                ctx.fillStyle = '#9c27b0';
+                ctx.fillRect(2 * scale, 14 * scale, 2 * scale, 12 * scale);
+                ctx.fillRect(12 * scale, 14 * scale, 2 * scale, 12 * scale);
+            } else if (type === 'GUADA') {
+                const gScale = scale * 0.85;
+                ctx.fillStyle = '#e91e63';
+                ctx.fillRect(4 * gScale, 12 * gScale, 8 * gScale, 14 * gScale);
+                ctx.fillStyle = '#ffdbac';
+                ctx.fillRect(4 * gScale, 4 * gScale, 8 * gScale, 8 * gScale);
+                ctx.fillStyle = '#d84315';
+                ctx.fillRect(3 * gScale, 2 * gScale, 10 * gScale, 4 * gScale);
+                ctx.fillRect(2 * gScale, 5 * gScale, 3 * gScale, 10 * gScale);
+                ctx.fillRect(11 * gScale, 5 * gScale, 3 * gScale, 10 * gScale);
+                ctx.fillStyle = '#00f3ff';
+                ctx.fillRect(5 * gScale, 7 * gScale, 2 * gScale, 2 * gScale);
+                ctx.fillRect(9 * gScale, 7 * gScale, 2 * gScale, 2 * gScale);
+                ctx.fillStyle = '#ffd700';
+                ctx.fillRect(5 * gScale, 0 * gScale, 6 * gScale, 2 * gScale);
+            } else if (type === 'LAURA') {
+                ctx.fillStyle = '#ffee55';
+                ctx.fillRect(1 * scale, 1 * scale, 22 * scale, 18 * scale);
+                ctx.fillStyle = '#4a148c';
+                ctx.fillRect(4 * scale, 8 * scale, 16 * scale, 20 * scale);
+                ctx.fillStyle = '#ab47bc';
+                ctx.fillRect(6 * scale, 8 * scale, 12 * scale, 10 * scale);
+                ctx.fillStyle = '#00e676';
+                ctx.fillRect(8 * scale, 11 * scale, 3 * scale, 3 * scale);
+                ctx.fillRect(13 * scale, 11 * scale, 3 * scale, 3 * scale);
+            }
+            ctx.restore();
+        }
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let currentLives = 5;
+        let currentStage = 1;
+        let activeMinigame = null;
+
+        const hud = document.getElementById('hud');
+        const hudName = document.getElementById('hud-name');
+        const hudLives = document.getElementById('hud-lives');
+        const hudStage = document.getElementById('hud-stage');
+
+        const uiLayer = document.getElementById('ui-layer');
+        const screenTitle = document.getElementById('screen-title');
+        const screenCustom = document.getElementById('screen-custom');
+        const screenDialog = document.getElementById('screen-dialog');
+        const screenGameover = document.getElementById('screen-gameover');
+        const screenVictory = document.getElementById('screen-victory');
+        const mobileControls = document.getElementById('mobile-controls');
+
+        const selectName = document.getElementById('select-name');
+        PAPU_NAMES.forEach(n => {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = n;
+            selectName.appendChild(opt);
+        });
+
+        function setupCustomizerUI() {
+            const createColorBtns = (containerId, colors, key) => {
+                const el = document.getElementById(containerId);
+                el.innerHTML = '';
+                colors.forEach((c, idx) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-6 h-6 rounded border border-white cursor-pointer';
+                    btn.style.backgroundColor = c;
+                    btn.onclick = () => {
+                        audio.playClick();
+                        playerCustom[key] = idx;
+                        renderPreview();
+                    };
+                    el.appendChild(btn);
+                });
+            };
+
+            createColorBtns('opts-skin', COLOR_PALETTES.skin, 'skinIdx');
+            createColorBtns('opts-hair', COLOR_PALETTES.hair, 'hairIdx');
+            createColorBtns('opts-shirt', COLOR_PALETTES.shirt, 'shirtIdx');
+
+            document.getElementById('btn-toggle-acc').onclick = (e) => {
+                audio.playClick();
+                playerCustom.accIdx = (playerCustom.accIdx + 1) % 3;
+                const labels = ['NINGUNO', 'LENTES DE SOL', 'GORRA PAPU'];
+                e.target.textContent = labels[playerCustom.accIdx];
+                renderPreview();
+            };
+
+            selectName.onchange = (e) => {
+                audio.playClick();
+                playerCustom.name = e.target.value;
+                document.getElementById('lbl-selected-name').textContent = playerCustom.name;
+            };
+        }
+
+        function renderPreview() {
+            const prevCanvas = document.getElementById('custom-preview');
+            const pctx = prevCanvas.getContext('2d');
+            pctx.clearRect(0, 0, prevCanvas.width, prevCanvas.height);
+            drawPixelSprite(pctx, 'HERO', 22, 18, 2.2, playerCustom);
+        }
+
+        setupCustomizerUI();
+
+        document.getElementById('btn-goto-custom').onclick = () => {
+            audio.init();
+            audio.playClick();
+            screenTitle.classList.add('hidden');
+            screenCustom.classList.remove('hidden');
+            renderPreview();
+        };
+
+        document.getElementById('btn-start-game').onclick = () => {
+            audio.playClick();
+            currentLives = 5;
+            currentStage = 1;
+            screenCustom.classList.add('hidden');
+            startStageDialog(currentStage);
+        };
+
+        document.getElementById('btn-retry').onclick = () => {
+            audio.playClick();
+            currentLives = 5;
+            currentStage = 1;
+            screenGameover.classList.add('hidden');
+            startStageDialog(1);
+        };
+
+        document.getElementById('btn-restart').onclick = () => {
+            audio.playClick();
+            screenVictory.classList.add('hidden');
+            screenTitle.classList.remove('hidden');
+            uiLayer.classList.remove('hidden');
+            hud.classList.add('hidden');
+            mobileControls.classList.add('hidden');
+        };
+
+        document.getElementById('btn-start-minigame').onclick = () => {
+            audio.playClick();
+            screenDialog.classList.add('hidden');
+            uiLayer.classList.add('hidden');
+            hud.classList.remove('hidden');
+            mobileControls.classList.remove('hidden');
+            updateHUD();
+            runMinigame(currentStage);
+        };
+
+        function updateHUD() {
+            hudName.textContent = playerCustom.name;
+            hudLives.textContent = '❤'.repeat(Math.max(0, currentLives));
+            hudStage.textContent = `${currentStage}/8`;
+        }
+
+        function loseLife() {
+            audio.playHurt();
+            currentLives--;
+            updateHUD();
+            if (activeMinigame && activeMinigame.stop) activeMinigame.stop();
+            
+            if (currentLives <= 0) {
+                document.getElementById('go-stage').textContent = currentStage;
+                mobileControls.classList.add('hidden');
+                uiLayer.classList.remove('hidden');
+                screenGameover.classList.remove('hidden');
+            } else {
+                startStageDialog(currentStage, true);
+            }
+        }
+
+        function passStage() {
+            audio.playSuccess();
+            if (activeMinigame && activeMinigame.stop) activeMinigame.stop();
+            currentStage++;
+            if (currentStage > 8) {
+                showVictoryScreen();
+            } else {
+                startStageDialog(currentStage);
+            }
+        }
+
+        const STAGE_DATA = [
+            { title: "MINIJUEGO 1: EL HELADO DEL PAPU", speaker: "TOMI EL VILLANO", portrait: "TOMI", text: "¡Jajaja Papu! Junta 10 bochas de helado de las 35 que caen.", instruction: "Mueve el helado (◄ ► o táctil) para atrapar 10 bochas." },
+            { title: "MINIJUEGO 2: MOLESTAR A TINI", speaker: "TINI", portrait: "HERO", text: "¡Ayy Papu! No me molestes mientras escucho música...", instruction: "Toca ACCIÓN cuando esté leyendo. ¡Frena cuando se dé vuelta!" },
+            { title: "MINIJUEGO 3: DEBATE CON BALIAN", speaker: "BALIAN", portrait: "HERO", text: "¡Debate conmigo siguiendo el ritmo de los argumentos!", instruction: "Presiona la pantalla en el momento en que la barra cruce el objetivo." },
+            { title: "MINIJUEGO 4: MONSTRUO LAURA", speaker: "LAURA LA GIGANTE", portrait: "LAURA", text: "¡Soy Laura la gigante! ¡No podrás derribarme!", instruction: "Muévete (◄ ►) y dispara proyectiles (ACCIÓN) a Laura." },
+            { title: "MINIJUEGO 5: HACKEAR A TOMI", speaker: "TOMI EL VILLANO", portrait: "TOMI", text: "¡Descifra la clave del firewall Papu para continuar!", instruction: "Toca los botones según la secuencia requerida." },
+            { title: "MINIJUEGO 6: PARKOUR PAPU", speaker: "PRINCESA GUADA", portrait: "GUADA", text: "¡Ayuda Papu! ¡Llega a lo alto de la torre!", instruction: "Salta entre plataformas evitando los pinchos." },
+            { title: "MINIJUEGO 7: ¡ESCAPA DE SOL Y CAMILA!", speaker: "SOL Y CAMILA", portrait: "TOMI", text: "¡PAGANOS EL UUD AHORA MISMO PAPU!", instruction: "Salta los obstáculos con ACCIÓN / ARRIBA hasta llegar a la meta." },
+            { title: "MINIJUEGO 8: PENALES DE HANDBALL EN JUNIORS", speaker: "TOMI EL VILLANO", portrait: "TOMI", text: "¡Bienvenido a la Cancha de Juniors! Definamos a 3 penales de Handball.", instruction: "Patea frenando en verde con ACCIÓN. Ataja usando ◄ o ►." }
+        ];
+
+        function startStageDialog(stage, retry = false) {
+            if (activeMinigame && activeMinigame.stop) activeMinigame.stop();
+            const data = STAGE_DATA[stage - 1];
+            
+            document.getElementById('dialog-minigame-title').textContent = data.title;
+            document.getElementById('dialog-speaker').textContent = data.speaker;
+            document.getElementById('dialog-text').textContent = retry ? "¡Casi Papu! Inténtalo de nuevo." : data.text;
+            document.getElementById('dialog-instruction').textContent = "INSTRUCCIÓN: " + data.instruction;
+
+            const pCanvas = document.getElementById('dialog-portrait');
+            const pctx = pCanvas.getContext('2d');
+            pctx.clearRect(0, 0, 60, 60);
+            drawPixelSprite(pctx, data.portrait, 10, 10, 1.5);
+
+            uiLayer.classList.remove('hidden');
+            screenDialog.classList.remove('hidden');
+            mobileControls.classList.add('hidden');
+        }
+
+        function showVictoryScreen() {
+            uiLayer.classList.remove('hidden');
+            screenVictory.classList.remove('hidden');
+            mobileControls.classList.add('hidden');
+            hud.classList.add('hidden');
+            document.getElementById('vic-hero-name').textContent = `¡${playerCustom.name.toUpperCase()} ES EL PAPU DEFINITIVO!`;
+
+            const vCanvas = document.getElementById('victory-canvas');
+            const vctx = vCanvas.getContext('2d');
+            vctx.clearRect(0, 0, 320, 140);
+
+            drawPixelSprite(vctx, 'HERO', 60, 40, 2);
+            drawPixelSprite(vctx, 'GUADA', 130, 45, 2);
+            drawPixelSprite(vctx, 'TOMI', 220, 80, 2);
+        }
+
+        function runMinigame(stage) {
+            if (stage === 8) {
+                activeMinigame = new TomiFinalBossMinigame();
+                activeMinigame.start();
+            } else {
+                activeMinigame = new GenericMinigame(stage);
+                activeMinigame.start();
+            }
+        }
+
+        class GenericMinigame {
+            constructor(stage) {
+                this.stage = stage;
+                this.running = false;
+                this.timer = 0;
+                this.px = 400;
+                this.py = 400;
+                this.score = 0;
+                this.targetScore = 10;
+                this.items = [];
+                this.spawnTimer = 0;
+            }
+
+            start() {
+                this.running = true;
+                this.bindEvents();
+                this.loop();
+            }
+
+            stop() {
+                this.running = false;
+                this.unbindEvents();
+            }
+
+            bindEvents() {
+                this.onKeyDown = (e) => {
+                    if (e.code === 'ArrowLeft') this.px -= 20;
+                    if (e.code === 'ArrowRight') this.px += 20;
+                    if (e.code === 'Space') this.handleAction();
+                };
+                window.addEventListener('keydown', this.onKeyDown);
+                document.getElementById('btn-left').ontouchstart = () => this.px -= 25;
+                document.getElementById('btn-right').ontouchstart = () => this.px += 25;
+                document.getElementById('btn-action').ontouchstart = () => this.handleAction();
+            }
+
+            unbindEvents() {
+                window.removeEventListener('keydown', this.onKeyDown);
+            }
+
+            handleAction() {
+                if (this.stage === 2 || this.stage === 3 || this.stage === 5 || this.stage === 7) {
+                    this.score += 2;
+                    audio.playJump();
+                    if (this.score >= this.targetScore) passStage();
+                } else if (this.stage === 4) {
+                    this.items.push({ x: this.px, y: this.py, speed: 8 });
+                    audio.playJump();
+                }
+            }
+
+            loop() {
+                if (!this.running) return;
+
+                ctx.clearRect(0, 0, 800, 520);
+                this.timer += 0.016;
+
+                this.px = Math.max(30, Math.min(730, this.px));
+
+                if (this.stage === 1) {
+                    ctx.fillStyle = '#ff0055';
+                    ctx.fillRect(this.px, 450, 60, 25);
+
+                    this.spawnTimer += 0.016;
+                    if (this.spawnTimer > 0.3 && this.items.length < 35) {
+                        this.spawnTimer = 0;
+                        this.items.push({ x: Math.random() * 740 + 30, y: 0, speed: 3 + Math.random() * 3 });
+                    }
+
+                    for (let i = this.items.length - 1; i >= 0; i--) {
+                        let it = this.items[i];
+                        it.y += it.speed;
+                        ctx.fillStyle = '#ffcc00';
+                        ctx.beginPath();
+                        ctx.arc(it.x, it.y, 12, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        if (it.y > 440 && it.y < 480 && Math.abs(it.x - (this.px + 30)) < 40) {
+                            this.items.splice(i, 1);
+                            this.score++;
+                            audio.playClick();
+                            if (this.score >= 10) passStage();
+                        }
+                    }
+
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px "Press Start 2P"';
+                    ctx.fillText(`BOCHAS ATRAPADAS: ${this.score}/10`, 30, 40);
+
+                } else if (this.stage === 4) {
+                    drawPixelSprite(ctx, 'LAURA', 350, 50, 3);
+                    drawPixelSprite(ctx, 'HERO', this.px, 400, 2);
+
+                    for (let i = this.items.length - 1; i >= 0; i--) {
+                        let p = this.items[i];
+                        p.y -= p.speed;
+                        ctx.fillStyle = '#00f3ff';
+                        ctx.fillRect(p.x + 10, p.y, 8, 16);
+
+                        if (p.y < 120 && Math.abs(p.x - 380) < 80) {
+                            this.items.splice(i, 1);
+                            this.score++;
+                            audio.playClick();
+                            if (this.score >= 10) passStage();
+                        }
+                    }
+
+                    ctx.fillStyle = '#fff';
+                    ctx.font = '12px "Press Start 2P"';
+                    ctx.fillText(`IMPACTOS A LAURA: ${this.score}/10`, 30, 40);
+
+                } else {
+                    drawPixelSprite(ctx, 'HERO', this.px, 350, 2);
+                    ctx.fillStyle = '#ffe600';
+                    ctx.font = '12px "Press Start 2P"';
+                    ctx.fillText("¡TOCA ACCIÓN RÁPIDO!", 260, 200);
+                    ctx.fillText(`PROGRESO: ${this.score * 10}%`, 300, 240);
+                }
+
+                requestAnimationFrame(() => this.loop());
+            }
+        }
+
+        class TomiFinalBossMinigame {
+            constructor() {
+                this.round = 1;
+                this.turn = 'SHOOT';
+                this.scorePlayer = 0;
+                this.scoreTomi = 0;
+                this.aimX = 400;
+                this.aimDir = 4;
+                this.powerBar = 0;
+                this.powerDir = 2;
+                this.subState = 'AIMING';
+                this.tomiShotTarget = null;
+                this.tomiShotTimer = 0;
+                this.running = false;
+            }
+
+            start() {
+                this.running = true;
+                this.bindEvents();
+                this.resetTurn();
+                this.loop();
+            }
+
+            stop() {
+                this.running = false;
+                this.unbindEvents();
+            }
+
+            resetTurn() {
+                this.aimX = 400;
+                this.powerBar = 0;
+                this.subState = this.turn === 'SHOOT' ? 'AIMING' : 'DEFENDING';
+                if (this.turn === 'DEFEND') {
+                    this.tomiShotTarget = Math.random() < 0.5 ? 'LEFT' : 'RIGHT';
+                    this.tomiShotTimer = 100;
+                }
+            }
+
+            bindEvents() {
+                this.onKeyDown = (e) => {
+                    if (e.code === 'ArrowLeft' || e.code === 'KeyA') this.handleAction('LEFT');
+                    if (e.code === 'ArrowRight' || e.code === 'KeyD') this.handleAction('RIGHT');
+                    if (e.code === 'Space' || e.code === 'KeyZ') this.handleAction('ACTION');
+                };
+                window.addEventListener('keydown', this.onKeyDown);
+
+                document.getElementById('btn-left').ontouchstart = () => this.handleAction('LEFT');
+                document.getElementById('btn-right').ontouchstart = () => this.handleAction('RIGHT');
+                document.getElementById('btn-action').ontouchstart = () => this.handleAction('ACTION');
+            }
+
+            unbindEvents() {
+                window.removeEventListener('keydown', this.onKeyDown);
+            }
+
+            handleAction(input) {
+                if (!this.running) return;
+
+                if (this.turn === 'SHOOT') {
+                    if (this.subState === 'AIMING' && input === 'ACTION') {
+                        audio.playClick();
+                        this.subState = 'POWER';
+                    } else if (this.subState === 'POWER' && input === 'ACTION') {
+                        audio.playClick();
+                        const inGreen = this.powerBar >= 40 && this.powerBar <= 70;
+                        if (inGreen) {
+                            this.scorePlayer++;
+                            audio.playSuccess();
+                        } else {
+                            audio.playHurt();
+                        }
+                        this.subState = 'RESULT';
+                        setTimeout(() => this.nextTurn(), 1400);
+                    }
+                } else if (this.turn === 'DEFEND' && this.subState === 'DEFENDING') {
+                    if (input === 'LEFT' || input === 'RIGHT') {
+                        if (input === this.tomiShotTarget && this.tomiShotTimer < 60) {
+                            audio.playSuccess();
+                        } else {
+                            this.scoreTomi++;
+                            audio.playHurt();
+                        }
+                        this.subState = 'RESULT';
+                        setTimeout(() => this.nextTurn(), 1400);
+                    }
+                }
+            }
+
+            nextTurn() {
+                if (this.turn === 'SHOOT') {
+                    this.turn = 'DEFEND';
+                } else {
+                    this.turn = 'SHOOT';
+                    this.round++;
+                }
+
+                if (this.round > 3) {
+                    if (this.scorePlayer >= this.scoreTomi) passStage();
+                    else loseLife();
+                    return;
+                }
+                this.resetTurn();
+            }
+
+            loop() {
+                if (!this.running) return;
+
+                ctx.clearRect(0, 0, 800, 520);
+
+                ctx.fillStyle = '#c87d47';
+                ctx.fillRect(0, 0, 800, 520);
+                
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.arc(400, 180, 190, 0, Math.PI, false);
+                ctx.stroke();
+
+                ctx.fillStyle = '#0f2027';
+                ctx.fillRect(200, 10, 400, 40);
+                ctx.strokeStyle = '#ffe600';
+                ctx.strokeRect(200, 10, 400, 40);
+                ctx.fillStyle = '#ffe600';
+                ctx.font = '14px "Press Start 2P"';
+                ctx.fillText("CANCHA DE JUNIORS", 270, 35);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(280, 90, 240, 110);
+                ctx.fillStyle = 'rgba(0,0,0,0.4)';
+                ctx.fillRect(290, 100, 220, 100);
+
+                for (let i = 0; i < 110; i += 20) {
+                    ctx.fillStyle = i % 40 === 0 ? '#ff0055' : '#ffffff';
+                    ctx.fillRect(280, 90 + i, 12, 20);
+                    ctx.fillRect(508, 90 + i, 12, 20);
+                    ctx.fillRect(280 + (i * 2.1), 90, 22, 10);
+                }
+
+                if (this.turn === 'SHOOT') {
+                    drawPixelSprite(ctx, 'TOMI', 380, 110, 2.2);
+                    drawPixelSprite(ctx, 'HERO', 380, 360, 2.5);
+
+                    if (this.subState === 'AIMING') {
+                        this.aimX += this.aimDir;
+                        if (this.aimX < 300 || this.aimX > 480) this.aimDir *= -1;
+
+                        ctx.strokeStyle = '#00f3ff';
+                        ctx.lineWidth = 3;
+                        ctx.strokeRect(this.aimX, 120, 24, 24);
+                        ctx.fillStyle = '#ffe600';
+                        ctx.font = '10px "Press Start 2P"';
+                        ctx.fillText("TOCA ACCIÓN PARA FIJAR DIRECCIÓN", 180, 460);
+                    } else if (this.subState === 'POWER') {
+                        this.powerBar += this.powerDir;
+                        if (this.powerBar > 100 || this.powerBar < 0) this.powerDir *= -1;
+
+                        ctx.fillStyle = '#222';
+                        ctx.fillRect(250, 440, 300, 24);
+                        ctx.fillStyle = '#ff0055';
+                        ctx.fillRect(250, 440, (this.powerBar / 100) * 300, 24);
+                        ctx.fillStyle = '#00ff66';
+                        ctx.fillRect(250 + (0.4 * 300), 440, (0.3 * 300), 24);
+                        ctx.strokeStyle = '#fff';
+                        ctx.strokeRect(250, 440, 300, 24);
+
+                        ctx.fillStyle = '#fff';
+                        ctx.font = '10px "Press Start 2P"';
+                        ctx.fillText("FRENA EN LA ZONA VERDE", 270, 430);
+                    }
+                } else if (this.turn === 'DEFEND') {
+                    drawPixelSprite(ctx, 'HERO', 380, 110, 2.2);
+                    drawPixelSprite(ctx, 'TOMI', 380, 360, 2.5);
+
+                    if (this.subState === 'DEFENDING') {
+                        this.tomiShotTimer -= 1.2;
+                        if (this.tomiShotTimer < 0) {
+                            this.scoreTomi++;
+                            audio.playHurt();
+                            this.subState = 'RESULT';
+                            setTimeout(() => this.nextTurn(), 1400);
+                        }
+
+                        ctx.fillStyle = '#ff0055';
+                        ctx.font = '12px "Press Start 2P"';
+                        ctx.fillText("¡TOMI DISPARA! ATAJA CON ◄ O ►", 180, 450);
+                    }
+                }
+
+                ctx.fillStyle = '#ffe600';
+                ctx.font = '12px "Press Start 2P"';
+                ctx.fillText(`PENAL: ${this.round}/3`, 30, 30);
+                ctx.fillText(`PAPU: ${this.scorePlayer}`, 30, 55);
+                ctx.fillText(`TOMI: ${this.scoreTomi}`, 30, 80);
+
+                requestAnimationFrame(() => this.loop());
+            }
+        }
+    </script>
+</body>
+</html>
